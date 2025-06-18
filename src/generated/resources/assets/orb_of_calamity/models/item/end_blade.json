@@ -1,0 +1,6 @@
+{
+  "parent": "orb_of_calamity:item/big_handheld",
+  "textures": {
+    "layer0": "orb_of_calamity:item/end_blade"
+  }
+}

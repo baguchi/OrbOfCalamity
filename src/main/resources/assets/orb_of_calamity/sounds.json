@@ -1,0 +1,10 @@
+{
+  "entity.orb_of_ender.roar": {
+    "sounds": [
+      {
+        "name": "orb_of_calamity:entity/orb_of_ender/orb_of_ender_roar"
+      }
+    ],
+    "subtitle": "subtitles.entity.orb_of_ender.roar"
+  }
+}
