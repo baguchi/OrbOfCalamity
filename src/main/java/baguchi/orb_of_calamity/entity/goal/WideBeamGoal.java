@@ -1,5 +1,6 @@
 package baguchi.orb_of_calamity.entity.goal;
 
+import baguchi.orb_of_calamity.entity.Bullet;
 import baguchi.orb_of_calamity.entity.OrbOfEnder;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.server.level.ServerLevel;
@@ -7,7 +8,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -28,20 +32,36 @@ public class WideBeamGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        return this.mob.getAction() == OrbOfEnder.Actions.START_BREATH;
+        return this.mob.getAction() == OrbOfEnder.Actions.START_BREATH && this.mob.getTarget() != null;
     }
 
     @Override
     public boolean canContinueToUse() {
-        return super.canContinueToUse() || this.breathTick < 240;
+        return super.canContinueToUse() || this.breathTick < 100;
     }
 
     @Override
     public void tick() {
         super.tick();
-        if(this.mob.getAction() == OrbOfEnder.Actions.BREATH){
+        if (this.mob.getAction() == OrbOfEnder.Actions.BREATH) {
             this.breathTick++;
             doAttack();
+            if (this.breathTick % 5 == 0) {
+                if (this.mob.getTarget() != null) {
+
+                    LivingEntity livingentity = this.mob.getTarget();
+                    double d0 = livingentity.getX() - this.mob.getX();
+                    double d1 = livingentity.getY() - this.mob.getY();
+                    double d2 = livingentity.getZ() - this.mob.getZ();
+
+                    Projectile.spawnProjectileUsingShoot(
+                            new Bullet(getServerLevel(this.mob), this.mob), getServerLevel(this.mob), ItemStack.EMPTY, d0, d1, d2, 0.4F, 40
+                    );
+                }
+            }
+        }
+        if (this.mob.getTarget() != null) {
+            this.mob.getLookControl().setLookAt(this.mob.getTarget());
         }
     }
 
@@ -54,14 +74,16 @@ public class WideBeamGoal extends Goal {
                 if (entity != this.mob) {
                     if (!this.mob.isAlliedTo(entity)) {
                         Vec3 vec3 = entity.getEyePosition();
-                        Vec3 yVector = this.mob.calculateViewVector(this.mob.getXRot(), this.mob.getYHeadRot());
+                        Vec3 yVector = this.mob.calculateViewVector(0, this.mob.yBodyRot);
                         Vec3 vec32 = vec3.subtract(this.mob.getEyePosition());
                         Vec3 vec33 = (new Vec3(vec32.x, vec32.y, vec32.z)).normalize();
                         double d0 = Math.acos(vec33.dot(yVector));
                         if (resolveAttack(d0, range)) {
                             boolean sight = this.mob.getSensing().hasLineOfSight(entity);
 
-                            Vec3 look = this.mob.getLookAngle().scale(sight ? 0.2F : 0.04F);
+                            double knockback = entity instanceof LivingEntity living ? 1 - living.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE) : 1D;
+
+                            Vec3 look = this.mob.calculateViewVector(0, this.mob.yBodyRot).scale(sight ? 0.05F * knockback : 0.02F * knockback);
 
                             entity.setDeltaMovement(entity.getDeltaMovement().add(look));
                             if (entity instanceof ServerPlayer serverplayer) {

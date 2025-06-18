@@ -1,6 +1,8 @@
 {
-  "itemGroup.orb_of_calamity": "Example Mod Tab",
-  "block.orb_of_calamity.example_block": "Example Block",
-  "entity.orb_of_calamity.orb_of_ender": "Orb Of Ender",
-  "subtitles.entity.orb_of_ender.roar": "Orb Of Ender Roar"
+  "entity.orb_of_calamity.orb_of_ender": "支配のエンダー",
+  "item.orb_of_calamity.end_blade": "エンドブレード",
+  "entity.orb_of_calamity.sword": "エンドブレード",
+  "entity.orb_of_calamity.bullet": "Bullet",
+  "subtitles.entity.orb_of_ender.roar": "支配のエンダーが吠える",
+  "message.orb_of_ender.cannot_escape": "支配のエンダーを倒すまで帰れない"
 }

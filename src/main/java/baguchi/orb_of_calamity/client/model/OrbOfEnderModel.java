@@ -3,12 +3,12 @@ package baguchi.orb_of_calamity.client.model;// Made with Blockbench 4.12.4
 // Paste this class into your mod and generate all required imports
 
 
+import baguchi.orb_of_calamity.client.render.animations.OrbOfEnderAnimations;
 import baguchi.orb_of_calamity.client.render.state.OrbOfEnderRenderState;
-import baguchi.orb_of_calamity.entity.OrbOfEnder;
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.animation.KeyframeAnimation;
 import net.minecraft.client.model.ArmedModel;
 import net.minecraft.client.model.EntityModel;
-import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.*;
@@ -30,6 +30,14 @@ public class OrbOfEnderModel<T extends OrbOfEnderRenderState> extends EntityMode
 	private final ModelPart RightLeg2;
 	private final ModelPart LeftLeg;
 	private final ModelPart LeftLeg2;
+	private final KeyframeAnimation idleAnimation;
+	private final KeyframeAnimation preSpawnAnimation;
+	private final KeyframeAnimation spawnAnimation;
+	private final KeyframeAnimation breathAnimation;
+	private final KeyframeAnimation preBreathAnimation;
+	private final KeyframeAnimation stopBreathAnimation;
+	private final KeyframeAnimation swordShootAnimation;
+	private final KeyframeAnimation deathAnimation;
 
 	public OrbOfEnderModel(ModelPart root) {
         super(root);
@@ -48,6 +56,14 @@ public class OrbOfEnderModel<T extends OrbOfEnderRenderState> extends EntityMode
 		this.RightLeg2 = this.RightLeg.getChild("RightLeg2");
 		this.LeftLeg = this.Body.getChild("LeftLeg");
 		this.LeftLeg2 = this.LeftLeg.getChild("LeftLeg2");
+		this.idleAnimation = OrbOfEnderAnimations.idle.bake(root);
+		this.spawnAnimation = OrbOfEnderAnimations.spawn.bake(root);
+		this.preSpawnAnimation = OrbOfEnderAnimations.pre_spawn.bake(root);
+		this.breathAnimation = OrbOfEnderAnimations.beam_attack_loop.bake(root);
+		this.preBreathAnimation = OrbOfEnderAnimations.beam_attack.bake(root);
+		this.stopBreathAnimation = OrbOfEnderAnimations.beam_attack_stop.bake(root);
+		this.swordShootAnimation = OrbOfEnderAnimations.shoot_sword.bake(root);
+		this.deathAnimation = OrbOfEnderAnimations.death.bake(root);
 	}
 
 	public static LayerDefinition createBodyLayer() {
@@ -89,7 +105,18 @@ public class OrbOfEnderModel<T extends OrbOfEnderRenderState> extends EntityMode
 
 	@Override
 	public void setupAnim(T entity) {
+		super.setupAnim(entity);
+		this.head.xRot = entity.xRot * (float) (Math.PI / 180.0);
+		this.head.yRot = entity.yRot * (float) (Math.PI / 180.0);
 
+		this.idleAnimation.apply(entity.idleAnimationState, entity.ageInTicks);
+		this.preSpawnAnimation.apply(entity.preSpawnAnimationState, entity.ageInTicks);
+		this.spawnAnimation.apply(entity.spawnAnimationState, entity.ageInTicks);
+		this.breathAnimation.apply(entity.breathAnimationState, entity.ageInTicks);
+		this.preBreathAnimation.apply(entity.preBreathAnimationState, entity.ageInTicks);
+		this.stopBreathAnimation.apply(entity.stopBreathAnimationState, entity.ageInTicks);
+		this.swordShootAnimation.apply(entity.swordAttackAnimationState, entity.ageInTicks);
+		this.deathAnimation.apply(entity.deathAnimationState, entity.ageInTicks);
 	}
 
 	private ModelPart getArm(HumanoidArm p_102923_) {

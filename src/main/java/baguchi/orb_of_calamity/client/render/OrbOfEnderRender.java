@@ -14,6 +14,7 @@ import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.client.renderer.entity.layers.EyesLayer;
 import net.minecraft.client.renderer.entity.layers.ItemInHandLayer;
+import net.minecraft.client.renderer.entity.state.ArmedEntityRenderState;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.ARGB;
 import org.joml.Quaternionf;
@@ -77,7 +78,7 @@ public class OrbOfEnderRender extends MobRenderer<OrbOfEnder, OrbOfEnderRenderSt
         Quaternionf quaternionf = new Quaternionf();
         quaternionf.rotationYXZ((float) ((seekerRenderState.bodyRot - 180.0F) * (Math.PI / 180F)), (float) ((-90) * (Math.PI / 180F)), 0);
         p_352922_.mulPose(quaternionf);
-        float f1 = 16F;
+        float f1 = 30F;
         float f2 = p_352903_;
         vector3f1.set(-HALF_SQRT_3 * f2, f1, -f2);
         vector3f2.set(HALF_SQRT_3 * f2, f1, -f2);
@@ -104,14 +105,17 @@ public class OrbOfEnderRender extends MobRenderer<OrbOfEnder, OrbOfEnderRenderSt
 
 
     @Override
-    public void extractRenderState(OrbOfEnder p_362733_, OrbOfEnderRenderState p_360515_, float p_361157_) {
-        super.extractRenderState(p_362733_, p_360515_, p_361157_);
-        p_360515_.breathAnimationState.copyFrom(p_362733_.breathAnimationState);
-        p_360515_.preBreathAnimationState.copyFrom(p_362733_.preBreathAnimationState);
-        p_360515_.stopBreathAnimationState.copyFrom(p_362733_.stopBreathAnimationState);
-        p_360515_.spawnAnimationState.copyFrom(p_362733_.spawnAnimationState);
-        p_360515_.swordAttackAnimationState.copyFrom(p_362733_.swordAttackAnimationState);
-        p_360515_.idleAnimationState.copyFrom(p_362733_.idleAnimationState);
+    public void extractRenderState(OrbOfEnder entity, OrbOfEnderRenderState state, float p_361157_) {
+        super.extractRenderState(entity, state, p_361157_);
+        state.breathAnimationState.copyFrom(entity.breathAnimationState);
+        state.preBreathAnimationState.copyFrom(entity.preBreathAnimationState);
+        state.stopBreathAnimationState.copyFrom(entity.stopBreathAnimationState);
+        state.spawnAnimationState.copyFrom(entity.spawnAnimationState);
+        state.swordAttackAnimationState.copyFrom(entity.swordAttackAnimationState);
+        state.idleAnimationState.copyFrom(entity.idleAnimationState);
+        state.preSpawnAnimationState.copyFrom(entity.preSpawnAnimationState);
+        state.deathAnimationState.copyFrom(entity.deathAnimationState);
+        ArmedEntityRenderState.extractArmedEntityRenderState(entity, state, itemModelResolver);
 
     }
 }

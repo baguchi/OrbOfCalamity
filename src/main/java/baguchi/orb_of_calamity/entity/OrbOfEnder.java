@@ -1,34 +1,39 @@
 package baguchi.orb_of_calamity.entity;
 
+import baguchi.orb_of_calamity.entity.control.StafeableFlyingMoveControl;
+import baguchi.orb_of_calamity.entity.goal.AwakeGoal;
 import baguchi.orb_of_calamity.entity.goal.RandomAttackIdleGoal;
+import baguchi.orb_of_calamity.entity.goal.SwordGoal;
 import baguchi.orb_of_calamity.entity.goal.WideBeamGoal;
 import baguchi.orb_of_calamity.register.ModItems;
 import baguchi.orb_of_calamity.register.ModSounds;
+import baguchi.orb_of_calamity.world.ModSavedData;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.BossEvent;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.*;
-import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
-import net.minecraft.world.entity.monster.EnderMan;
+import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.npc.AbstractVillager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.AbstractThrownPotion;
-import net.minecraft.world.entity.raid.Raider;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.alchemy.Potions;
@@ -39,39 +44,64 @@ import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.Nullable;
 
-import java.security.cert.CertPathBuilder;
-
 public class OrbOfEnder extends Monster {
+    private final ServerBossEvent bossEvent = (ServerBossEvent) (new ServerBossEvent(this.getDisplayName(), BossEvent.BossBarColor.PURPLE, BossEvent.BossBarOverlay.PROGRESS)).setPlayBossMusic(true).setCreateWorldFog(true);
+
     private static final EntityDataAccessor<String> ACTION = SynchedEntityData.defineId(OrbOfEnder.class, EntityDataSerializers.STRING);
     private int actionTick;
     public final AnimationState idleAnimationState = new AnimationState();
+    public final AnimationState preSpawnAnimationState = new AnimationState();
     public final AnimationState spawnAnimationState = new AnimationState();
     public final AnimationState swordAttackAnimationState = new AnimationState();
     public final AnimationState preBreathAnimationState = new AnimationState();
     public final AnimationState stopBreathAnimationState = new AnimationState();
     public final AnimationState breathAnimationState = new AnimationState();
+    public final AnimationState deathAnimationState = new AnimationState();
     public int wideBeamCooldown;
     public int swordCooldown;
     public OrbOfEnder(EntityType<? extends OrbOfEnder> p_32485_, Level p_32486_) {
         super(p_32485_, p_32486_);
-        this.wideBeamCooldown = p_32486_.getRandom().nextInt(200) + 200;
-        this.swordCooldown = p_32486_.getRandom().nextInt(400) + 400;
+        this.wideBeamCooldown = p_32486_.getRandom().nextInt(400) + 200;
+        this.swordCooldown = p_32486_.getRandom().nextInt(100) + 100;
+        this.moveControl = new StafeableFlyingMoveControl(this, 20, true);
+        this.setDropChance(EquipmentSlot.MAINHAND, 0F);
+        this.xpReward = 500;
     }
 
     public static AttributeSupplier.Builder createAttributes() {
         return Monster.createMonsterAttributes()
-                .add(Attributes.MAX_HEALTH, 400.0)
+                .add(Attributes.MAX_HEALTH, 300.0)
                 .add(Attributes.MOVEMENT_SPEED, 0.3F)
+                .add(Attributes.FLYING_SPEED, 0.15F)
                 .add(Attributes.ATTACK_DAMAGE, 6.0)
                 .add(Attributes.FOLLOW_RANGE, 32.0);
     }
 
     @Override
+    public void travel(Vec3 p_218382_) {
+        this.travelFlying(p_218382_, this.getSpeed());
+    }
+
+
+    @Override
+    protected PathNavigation createNavigation(Level p_218342_) {
+        FlyingPathNavigation flyingpathnavigation = new FlyingPathNavigation(this, p_218342_);
+        flyingpathnavigation.setCanOpenDoors(false);
+        flyingpathnavigation.setCanFloat(true);
+        flyingpathnavigation.setRequiredPathLength(32.0F);
+        return flyingpathnavigation;
+    }
+
+    @Override
     protected void registerGoals() {
         super.registerGoals();
+        this.goalSelector.addGoal(0, new AwakeGoal(this));
         this.goalSelector.addGoal(1, new WideBeamGoal(this, 140.0));
+        this.goalSelector.addGoal(1, new SwordGoal(this));
         this.goalSelector.addGoal(4, new RandomAttackIdleGoal(this));
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
@@ -87,7 +117,7 @@ public class OrbOfEnder extends Monster {
     @Override
     protected void defineSynchedData(SynchedEntityData.Builder p_326499_) {
         super.defineSynchedData(p_326499_);
-        p_326499_.define(ACTION, Actions.NORMAL.name());
+        p_326499_.define(ACTION, "NORMAL");
     }
 
     @Override
@@ -98,10 +128,47 @@ public class OrbOfEnder extends Monster {
     }
 
     @Override
+    public boolean hurtServer(ServerLevel p_376221_, DamageSource p_376460_, float p_376610_) {
+        if (p_376460_.is(DamageTypes.DROWN)) {
+            this.teleport();
+        }
+
+        return super.hurtServer(p_376221_, p_376460_, p_376610_);
+    }
+
+    @Override
     protected void readAdditionalSaveData(ValueInput p_422339_) {
         super.readAdditionalSaveData(p_422339_);
         this.wideBeamCooldown = p_422339_.getInt("wide_beam_cooldown").orElse(0);
         this.swordCooldown = p_422339_.getInt("sword_cooldown").orElse(100);
+
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (!this.level().isClientSide()) {
+            this.bossEvent.setProgress(this.getHealth() / this.getMaxHealth());
+        }
+
+    }
+
+    @Override
+    public void startSeenByPlayer(ServerPlayer player) {
+        super.startSeenByPlayer(player);
+        this.bossEvent.addPlayer(player);
+
+    }
+
+    @Override
+    public void stopSeenByPlayer(ServerPlayer player) {
+        super.stopSeenByPlayer(player);
+        this.bossEvent.removePlayer(player);
+    }
+
+    @Override
+    public HumanoidArm getMainArm() {
+        return HumanoidArm.RIGHT;
     }
 
     @Override
@@ -109,14 +176,50 @@ public class OrbOfEnder extends Monster {
         super.aiStep();
 
         this.actionTicks();
-        if (this.level().isClientSide) {
-            this.actionAnimations(this.getAction(), true);
-        }
         if(this.wideBeamCooldown > 0){
             this.wideBeamCooldown--;
         }
         if(this.swordCooldown > 0){
             this.swordCooldown--;
+        }
+        if (this.level().isClientSide) {
+            if (this.getAction() == Actions.NORMAL) {
+                idleAnimationState.startIfStopped(this.tickCount);
+            } else {
+                idleAnimationState.stop();
+            }
+        }
+    }
+
+    @OnlyIn(Dist.CLIENT)
+    public void handleEntityEvent(byte p_70103_1_) {
+        if (p_70103_1_ == 7) {
+            this.stopAnimations();
+            this.deathAnimationState.start(this.tickCount);
+        } else {
+            super.handleEntityEvent(p_70103_1_);
+        }
+
+    }
+
+    @Override
+    public void die(DamageSource p_21014_) {
+        super.die(p_21014_);
+        this.playSound(SoundEvents.ENDERMAN_HURT, 2.0F, 1.0F);
+
+        if (!this.level().isClientSide()) {
+            this.level().broadcastEntityEvent(this, (byte) 7);
+        }
+    }
+
+    @Override
+    protected void tickDeath() {
+        ++this.deathTime;
+
+        if (this.deathTime == 100 && !this.level().isClientSide()) {
+            this.level().broadcastEntityEvent(this, (byte) 60);
+            this.remove(Entity.RemovalReason.KILLED);
+            ModSavedData.get(this.level()).setDefeated(true);
         }
     }
 
@@ -137,10 +240,10 @@ public class OrbOfEnder extends Monster {
     public boolean teleportTowards(Entity target) {
         Vec3 vec3 = new Vec3(this.getX() - target.getX(), this.getY(0.5) - target.getEyeY(), this.getZ() - target.getZ());
         vec3 = vec3.normalize();
-        double d0 = 16.0;
-        double d1 = this.getX() + (this.random.nextDouble() - 0.5) * 8.0 - vec3.x * 16.0;
-        double d2 = this.getY() + (this.random.nextInt(16) - 8) - vec3.y * 16.0;
-        double d3 = this.getZ() + (this.random.nextDouble() - 0.5) * 8.0 - vec3.z * 16.0;
+        double d0 = 20;
+        double d1 = this.getX() + (this.random.nextDouble() - 0.5) * 10 - vec3.x * 20;
+        double d2 = this.getY() + (this.random.nextInt(20) - 10) - vec3.y * 20;
+        double d3 = this.getZ() + (this.random.nextDouble() - 0.5) * 10 - vec3.z * 20;
         return this.teleport(d1, d2, d3);
     }
 
@@ -175,7 +278,7 @@ public class OrbOfEnder extends Monster {
     @Override
     public @Nullable SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, EntitySpawnReason spawnReason, @Nullable SpawnGroupData spawnGroupData) {
         if(spawnReason == EntitySpawnReason.EVENT){
-            this.setAction(Actions.AWAKEN);
+            this.setAction(Actions.PRE_AWAKEN);
         }
         this.populateDefaultEquipmentSlots(random, difficulty);
         return super.finalizeSpawn(level, difficulty, spawnReason, spawnGroupData);
@@ -194,7 +297,7 @@ public class OrbOfEnder extends Monster {
     @Override
     public void onSyncedDataUpdated(EntityDataAccessor<?> p_146754_) {
         if (ACTION.equals(p_146754_)) {
-            this.actionAnimations(this.getAction(), false);
+            this.actionAnimations(this.getAction());
             if(this.getAction() == Actions.AWAKEN){
                 this.playSound(ModSounds.ORB_OF_ENDER_ROAR.value(), 2.0F, 1.0F);
             }
@@ -231,9 +334,8 @@ public class OrbOfEnder extends Monster {
         }
     }
 
-    public void actionAnimations(Actions actions, boolean loop) {
-        if (loop && actions.loop || !loop && !actions.loop) {
-            switch (actions) {
+    public void actionAnimations(Actions actions) {
+        switch (actions) {
                 case START_BREATH:
 
                     this.stopAnimations();
@@ -242,7 +344,7 @@ public class OrbOfEnder extends Monster {
                 case BREATH:
 
                     this.stopAnimations();
-                    breathAnimationState.start(this.tickCount);
+                    breathAnimationState.startIfStopped(this.tickCount);
                     break;
                 case STOP_BREATH:
 
@@ -252,7 +354,6 @@ public class OrbOfEnder extends Monster {
                 case NORMAL:
 
                     this.stopAnimations();
-                    idleAnimationState.start(this.tickCount);
                     break;
                 case SHOOT_SWORD:
 
@@ -264,11 +365,15 @@ public class OrbOfEnder extends Monster {
                     this.stopAnimations();
                     spawnAnimationState.start(this.tickCount);
                     break;
+            case PRE_AWAKEN:
+
+                this.stopAnimations();
+                preSpawnAnimationState.start(this.tickCount);
+                break;
                 default:
                     this.stopAnimations();
                     break;
             }
-        }
     }
 
     public void stopAnimations() {
@@ -276,7 +381,6 @@ public class OrbOfEnder extends Monster {
         breathAnimationState.stop();
         preBreathAnimationState.stop();
         stopBreathAnimationState.stop();
-        idleAnimationState.stop();
     }
 
     private boolean hurtWithCleanWater(ServerLevel level, DamageSource damageSource, AbstractThrownPotion potion, float damageAmount) {
@@ -288,11 +392,12 @@ public class OrbOfEnder extends Monster {
 
     public enum Actions {
         NORMAL(true, -1),
-        SHOOT_SWORD(false, (int) (-1)),
-        START_BREATH(true, (int) (-1)),
+        SHOOT_SWORD(true, (int) (-1)),
+        START_BREATH(false, (int) (0.6667F * 20)),
         BREATH(true, (int) (-1)),
-        STOP_BREATH(false, (int) (20 * 5.6)),
-        AWAKEN(true, 80);
+        STOP_BREATH(false, (int) (20 * 0.5F)),
+        AWAKEN(false, 80),
+        PRE_AWAKEN(true, -1);
 
         private final boolean loop;
         private final int tick;
